@@ -5,6 +5,8 @@ import { useRenderer } from "@opentui/react";
 import { useCommandMenu } from "./command-menu/use-command-meny";
 import type { Command } from "./command-menu/type";
 import { CommandMenu } from "./command-menu";
+import { useToast } from "../providers/toast";
+import { useKeyboardLayer } from "../providers/keyboard-layer";
 
 type Props = {
     onSubmit: (text: string) => void;
@@ -22,6 +24,8 @@ const InputBar = ({ onSubmit, disabled = false }: Props) => {
     const textareaRef = useRef<TextareaRenderable>(null);
     const onSUbmitRef = useRef<() => void>(()=>{});
     const renderer = useRenderer();
+    const toast = useToast();
+    const { setResponder } = useKeyboardLayer();
     const {
         showCommandMenu,
         commandQuery,
@@ -57,7 +61,8 @@ const InputBar = ({ onSubmit, disabled = false }: Props) => {
         textarea.setText("");
         if(command.action){
             command.action({
-                exit:()=>renderer.destroy()
+                exit:()=>renderer.destroy(),
+                toast
             })
         }else{
             textarea.insertText(command.value + " ");
@@ -70,6 +75,22 @@ const InputBar = ({ onSubmit, disabled = false }: Props) => {
             onSUbmitRef.current();
         };
     },[]);
+    // Register the base layer responder for ctrl+c handling
+    useEffect(() => {
+        setResponder("base", () => {
+            if (disabled) return false;
+
+            const textarea = textareaRef.current;
+            if (textarea && textarea.plainText.length > 0) {
+                textarea.setText("");
+                return true;
+            }
+
+            return false;
+        });
+
+        return () => setResponder("base", null);
+    }, [disabled, setResponder]);
     onSUbmitRef.current = ()=>{
         if(disabled) return;
         if(showCommandMenu){
